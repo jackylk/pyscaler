@@ -17,14 +17,14 @@ from .frameworks.registry import available_frameworks, get_framework
 
 app = typer.Typer(
     no_args_is_help=True,
-    help="distify — turn single-machine Python data code into a distributed script.",
+    help="xscale — turn single-machine Python data code into a distributed script.",
 )
 console = Console()
 
 
 def _version_cb(value: bool):
     if value:
-        console.print(f"distify {__version__}")
+        console.print(f"xscale {__version__}")
         raise typer.Exit()
 
 
@@ -65,7 +65,7 @@ def analyze(path: Path = typer.Argument(..., help="Python file to analyze")):
     for note in result.notes:
         console.print(f"[dim]• {note}[/]")
     if result.supports_parallel:
-        console.print("\n[green]✓ Ready to convert[/] — run `distify convert`")
+        console.print("\n[green]✓ Ready to convert[/] — run `xscale convert`")
     else:
         console.print("\n[yellow]⚠ Not ready to convert as-is — see blockers above[/]")
 

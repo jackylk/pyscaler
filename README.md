@@ -1,4 +1,4 @@
-# distify
+# xscale
 
 [English](README.en.md) · 中文
 
@@ -12,22 +12,22 @@
 - 改完不知道对不对，也不知道真正能加速多少
 - 希望转换完能跑在自己的集群上，不想被某个平台绑定
 
-`distify` 专注做好一件事：**把 Python 变成可验证的分布式脚本**，运行在哪儿是你的事。
+`xscale` 专注做好一件事：**把 Python 变成可验证的分布式脚本**，运行在哪儿是你的事。
 
 ## 安装
 
 ```bash
 # 从 PyPI 安装（发布后）
-pip install distify
+pip install xscale
 
 # 带上框架运行时
-pip install "distify[ray]"        # Ray 支持
-pip install "distify[aura]"       # Aura 支持（规划中）
-pip install "distify[llm]"        # 启用 LLM 辅助转换
+pip install "xscale[ray]"        # Ray 支持
+pip install "xscale[aura]"       # Aura 支持（规划中）
+pip install "xscale[llm]"        # 启用 LLM 辅助转换
 
 # 从源码开发安装
-git clone https://github.com/jackylk/distify
-cd distify
+git clone https://github.com/jackylk/xscale
+cd xscale
 pip install -e ".[ray,dev]"
 ```
 
@@ -35,18 +35,18 @@ pip install -e ".[ray,dev]"
 
 ```bash
 # 1. 分析 —— 找瓶颈、推荐框架、预估加速比
-distify analyze ./process.py
+xscale analyze ./process.py
 
 # 2. 转换 —— 生成 process_dist.py + diff
-distify convert ./process.py --framework ray --workers 8
+xscale convert ./process.py --framework ray --workers 8
 
 # 3. 验证 —— 取 5% 样本跑两个版本，对比正确性和实测加速
-distify verify ./process_dist.py --input ./data/ --sample 0.05
+xscale verify ./process_dist.py --input ./data/ --sample 0.05
 
 # 4. 执行 —— 选择后端
-distify run ./process_dist.py --backend local             --input ./data/
-distify run ./process_dist.py --backend ray://head:10001  --input ./data/
-distify run ./process_dist.py --backend dbay              --input obs://bucket/data/
+xscale run ./process_dist.py --backend local             --input ./data/
+xscale run ./process_dist.py --backend ray://head:10001  --input ./data/
+xscale run ./process_dist.py --backend dbay              --input obs://bucket/data/
 ```
 
 ## 5 分钟上手教程
@@ -56,9 +56,9 @@ distify run ./process_dist.py --backend dbay              --input obs://bucket/d
 ### 第 1 步：准备环境
 
 ```bash
-git clone https://github.com/jackylk/distify
-cd distify
-pip install -e ".[ray,dev]"     # 装 distify + Ray 运行时
+git clone https://github.com/jackylk/xscale
+cd xscale
+pip install -e ".[ray,dev]"     # 装 xscale + Ray 运行时
 ```
 
 ### 第 2 步：看一下你要转换的代码
@@ -75,13 +75,13 @@ for f in files:
     process_file(f)    # ← 瓶颈：串行 I/O
 ```
 
-### 第 3 步：让 distify 分析它
+### 第 3 步：让 xscale 分析它
 
 ```bash
-distify analyze examples/01_file_loop.py
+xscale analyze examples/01_file_loop.py
 ```
 
-distify 会告诉你：
+xscale 会告诉你：
 - 瓶颈在哪一行
 - 推荐用什么分布式模式（这里是 Ray 文件级并行）
 - 预估能加速多少倍
@@ -89,7 +89,7 @@ distify 会告诉你：
 ### 第 4 步：转换
 
 ```bash
-distify convert examples/01_file_loop.py --framework ray --workers 8
+xscale convert examples/01_file_loop.py --framework ray --workers 8
 ```
 
 生成两个文件：
@@ -109,10 +109,10 @@ done
 再跑验证：
 
 ```bash
-distify verify examples/01_file_loop_dist.py --input ./data/input --sample 0.2
+xscale verify examples/01_file_loop_dist.py --input ./data/input --sample 0.2
 ```
 
-distify 会：
+xscale 会：
 1. 取 20% 样本
 2. 同时跑原版和 Ray 版
 3. 对比两个版本输出是否一致
@@ -122,29 +122,29 @@ distify 会：
 
 ```bash
 # 本地（ray.init() 用本机所有核心）
-distify run examples/01_file_loop_dist.py --backend local --input ./data/input
+xscale run examples/01_file_loop_dist.py --backend local --input ./data/input
 
 # 你自己的 Ray 集群
-distify run examples/01_file_loop_dist.py --backend ray://head:10001 --input ./data/input
+xscale run examples/01_file_loop_dist.py --backend ray://head:10001 --input ./data/input
 
 # 或提交给 DBay
-distify run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket/data/
+xscale run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket/data/
 ```
 
 ### 常见问题
 
-**Q: 我的代码 distify 说不能并行化怎么办？**
-看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。distify 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
+**Q: 我的代码 xscale 说不能并行化怎么办？**
+看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。xscale 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
 
 **Q: 一定要用 Ray 吗？**
-目前是。下一个支持的框架是 Aura（规划中），用 `--framework aura` 启用。转换后的脚本是标准框架代码，distify 不会锁定你。
+目前是。下一个支持的框架是 Aura（规划中），用 `--framework aura` 启用。转换后的脚本是标准框架代码，xscale 不会锁定你。
 
 **Q: 转换用 LLM 吗？**
 默认不用，纯模板转换，离线可跑。加 `--llm-assist` 才会用 LLM 帮忙填一些边角情况。
 
 ## 核心概念
 
-distify 有两层插件，**分别正交**：
+xscale 有两层插件，**分别正交**：
 
 | 层 | 职责 | 例子 |
 |---|---|---|
@@ -169,7 +169,7 @@ distify 有两层插件，**分别正交**：
 每个任务有独立工作目录，记录来源、产物、运行日志：
 
 ```
-.distify/tasks/{task_id}/
+.xscale/tasks/{task_id}/
 ├── meta.json              # 命令、参数、commit、时间戳
 ├── source/                # 原始代码快照
 ├── converted/             # 生成的分布式脚本 + diff
@@ -177,7 +177,7 @@ distify 有两层插件，**分别正交**：
 └── runs/{run_id}/         # 每次执行的日志和输出
 ```
 
-默认写在当前目录 `./.distify/`，也可以指向 OBS/S3 共享给团队。
+默认写在当前目录 `./.xscale/`，也可以指向 OBS/S3 共享给团队。
 
 ## 设计边界
 
@@ -205,7 +205,7 @@ distify 有两层插件，**分别正交**：
 
 ## 贡献
 
-欢迎 Issue 和 PR。添加新框架：在 `src/distify/frameworks/` 下新建一个继承 `Framework` 的类，在 `registry.py` 注册即可。
+欢迎 Issue 和 PR。添加新框架：在 `src/xscale/frameworks/` 下新建一个继承 `Framework` 的类，在 `registry.py` 注册即可。
 
 ## 许可
 

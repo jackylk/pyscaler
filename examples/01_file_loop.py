@@ -2,14 +2,14 @@
 示例 1：文件级循环处理
 
 典型场景：一个目录下若干数据文件，逐个读取、处理、写出。
-distify 会把这种串行 for 循环转成 Ray 的文件级并行。
+xscale 会把这种串行 for 循环转成 Ray 的文件级并行。
 
 运行原始版本：
     python examples/01_file_loop.py
 
-distify 化之后：
-    distify analyze examples/01_file_loop.py
-    distify convert examples/01_file_loop.py --framework ray
+xscale 化之后：
+    xscale analyze examples/01_file_loop.py
+    xscale convert examples/01_file_loop.py --framework ray
 """
 import glob
 import json

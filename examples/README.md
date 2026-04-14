@@ -1,6 +1,6 @@
 # 示例
 
-| 文件 | 场景 | distify 能否处理 |
+| 文件 | 场景 | xscale 能否处理 |
 |---|---|---|
 | `01_file_loop.py` | 目录下多文件串行处理 | ✅ 适合 ray.remote 文件级并行 |
 | `02_dataframe_map.py` | DataFrame 按行计算 | ✅ 适合 ray.data map |
@@ -9,6 +9,6 @@
 用法：
 
 ```bash
-distify analyze examples/01_file_loop.py
-distify convert examples/01_file_loop.py --framework ray
+xscale analyze examples/01_file_loop.py
+xscale convert examples/01_file_loop.py --framework ray
 ```

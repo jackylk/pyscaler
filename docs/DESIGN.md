@@ -1,4 +1,4 @@
-# distify Design
+# xscale Design
 
 ## Goal
 
@@ -35,7 +35,7 @@ orthogonal. Keeping them separate means:
 - New frameworks (Spark, Modin) plug in without touching the execution layer
 
 ```
-src/distify/
+src/xscale/
 ├── frameworks/          # code transformation plugins
 │   ├── base.py          # Framework interface
 │   ├── registry.py
@@ -89,7 +89,7 @@ If speedup < 1.5× or correctness fails → block `run` unless `--force`.
 Each task gets a workspace dir:
 
 ```
-.distify/tasks/{task_id}/
+.xscale/tasks/{task_id}/
 ├── meta.json              # command, params, commit, timestamps
 ├── source/                # snapshot of user's code
 ├── converted/             # generated distributed script + diff
@@ -97,7 +97,7 @@ Each task gets a workspace dir:
 └── runs/{run_id}/         # logs + results per execution
 ```
 
-Default: `./.distify/`. User can point to OBS/S3 for team sharing.
+Default: `./.xscale/`. User can point to OBS/S3 for team sharing.
 
 ## LLM
 
@@ -109,6 +109,6 @@ Default: `./.distify/`. User can point to OBS/S3 for team sharing.
 
 ## Release
 
-- PyPI: `pip install distify`
+- PyPI: `pip install xscale`
 - Extras: `[ray]`, `[dask]`, `[llm]`, `[dev]`
-- `distify` CLI entrypoint registered via `project.scripts`
+- `xscale` CLI entrypoint registered via `project.scripts`

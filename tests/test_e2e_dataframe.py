@@ -10,9 +10,9 @@ import pytest
 ray = pytest.importorskip("ray")
 pd = pytest.importorskip("pandas")
 
-from distify.analyzer import analyze_file
-from distify.backends.local import LocalBackend
-from distify.frameworks.registry import get_framework
+from xscale.analyzer import analyze_file
+from xscale.backends.local import LocalBackend
+from xscale.frameworks.registry import get_framework
 
 
 FIXTURE = textwrap.dedent("""
@@ -65,7 +65,7 @@ def test_end_to_end_dataframe_ray(tmp_path: Path):
     dist.write_text(result.converted)
 
     # Sanity on generated code
-    assert "_distify_apply_chunk" in result.converted
+    assert "_xscale_apply_chunk" in result.converted
     assert "_chunk_size" in result.converted
     assert "pd.concat" in result.converted
 

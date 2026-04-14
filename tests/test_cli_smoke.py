@@ -1,8 +1,8 @@
 """Smoke tests — CLI registers, frameworks load, help works."""
 from typer.testing import CliRunner
 
-from distify.cli import app
-from distify.frameworks.registry import available_frameworks, get_framework
+from xscale.cli import app
+from xscale.frameworks.registry import available_frameworks, get_framework
 
 runner = CliRunner()
 
@@ -10,7 +10,7 @@ runner = CliRunner()
 def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "distify" in result.output
+    assert "xscale" in result.output
 
 
 def test_help_lists_commands():

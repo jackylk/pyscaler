@@ -1,4 +1,4 @@
-# distify
+# xscale
 
 Turn your single-machine Python data processing code into a distributed script.
 Framework-agnostic (Ray, Dask, ...), runs anywhere — your own cluster or DBay.
@@ -7,16 +7,16 @@ Framework-agnostic (Ray, Dask, ...), runs anywhere — your own cluster or DBay.
 
 ```bash
 # From PyPI (once published)
-pip install distify
+pip install xscale
 
 # With framework runtime
-pip install "distify[ray]"        # Ray backend
-pip install "distify[dask]"       # Dask backend (planned)
-pip install "distify[llm]"        # LLM-assisted conversion
+pip install "xscale[ray]"        # Ray backend
+pip install "xscale[dask]"       # Dask backend (planned)
+pip install "xscale[llm]"        # LLM-assisted conversion
 
 # Dev install from source
-git clone https://github.com/distify/distify
-cd distify
+git clone https://github.com/xscale/xscale
+cd xscale
 pip install -e ".[ray,dev]"
 ```
 
@@ -24,18 +24,18 @@ pip install -e ".[ray,dev]"
 
 ```bash
 # 1. Analyze — find bottlenecks, recommend framework, predict speedup
-distify analyze ./process.py
+xscale analyze ./process.py
 
 # 2. Convert — write process_dist.py + a unified diff
-distify convert ./process.py --framework ray --workers 8
+xscale convert ./process.py --framework ray --workers 8
 
 # 3. Verify — run both versions on a 5% sample, compare correctness & speed
-distify verify ./process_dist.py --input ./data/ --sample 0.05
+xscale verify ./process_dist.py --input ./data/ --sample 0.05
 
 # 4. Run — execute on a backend of your choice
-distify run ./process_dist.py --backend local             --input ./data/
-distify run ./process_dist.py --backend ray://head:10001  --input ./data/
-distify run ./process_dist.py --backend dbay              --input obs://bucket/data/
+xscale run ./process_dist.py --backend local             --input ./data/
+xscale run ./process_dist.py --backend ray://head:10001  --input ./data/
+xscale run ./process_dist.py --backend dbay              --input obs://bucket/data/
 ```
 
 ## Concepts
