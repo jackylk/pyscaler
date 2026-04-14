@@ -16,10 +16,20 @@ class LoopCandidate:
 
 
 @dataclass
+class DataFrameApply:
+    """A statement like `df[col] = df.apply(func, axis=1)`."""
+    line: int
+    df_name: str             # "df"
+    target_col: str          # "score"
+    func_name: str           # "compute_score"
+
+
+@dataclass
 class Analysis:
     path: Path
-    pattern: str                              # parallel_loop | dataframe_map | unknown
+    pattern: str                              # parallel_loop | dataframe_apply | unknown
     loop: LoopCandidate | None = None
+    df_apply: DataFrameApply | None = None
     blockers: list[str] = field(default_factory=list)
     recommended_framework: str = "ray"
     notes: list[str] = field(default_factory=list)
@@ -111,14 +121,70 @@ def _find_global_mutation_blockers(tree: ast.Module) -> list[str]:
     return blockers
 
 
+def _find_dataframe_apply(tree: ast.Module) -> DataFrameApply | None:
+    """Look for `df[col] = df.apply(func, axis=1)` at module top or __main__."""
+    bodies: list[list[ast.stmt]] = [tree.body]
+    for node in tree.body:
+        if (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and isinstance(node.test.left, ast.Name)
+            and node.test.left.id == "__name__"
+        ):
+            bodies.append(node.body)
+
+    for body in bodies:
+        for stmt in body:
+            if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
+                continue
+            tgt = stmt.targets[0]
+            # df[col] = ...
+            if not (isinstance(tgt, ast.Subscript) and isinstance(tgt.value, ast.Name)):
+                continue
+            df_name = tgt.value.id
+            col_node = tgt.slice if not isinstance(tgt.slice, ast.Index) else tgt.slice.value  # type: ignore[attr-defined]
+            if isinstance(col_node, ast.Constant) and isinstance(col_node.value, str):
+                target_col = col_node.value
+            else:
+                continue
+            # RHS: df.apply(func, axis=1)
+            call = stmt.value
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)):
+                continue
+            if call.func.attr != "apply":
+                continue
+            if not (isinstance(call.func.value, ast.Name) and call.func.value.id == df_name):
+                continue
+            if not call.args or not isinstance(call.args[0], ast.Name):
+                continue
+            return DataFrameApply(
+                line=stmt.lineno,
+                df_name=df_name,
+                target_col=target_col,
+                func_name=call.args[0].id,
+            )
+    return None
+
+
 def analyze_file(path: Path) -> Analysis:
     source = Path(path).read_text()
     tree = ast.parse(source, filename=str(path))
 
     blockers = _find_global_mutation_blockers(tree)
     loop = _find_parallel_loop(tree)
+    df_apply = _find_dataframe_apply(tree)
 
-    if loop and not blockers:
+    if blockers:
+        return Analysis(
+            path=Path(path),
+            pattern="unknown",
+            loop=loop,
+            df_apply=df_apply,
+            blockers=blockers,
+            recommended_framework="ray",
+            notes=["Shared mutable state would cause races under parallel execution."],
+        )
+    if loop:
         return Analysis(
             path=Path(path),
             pattern="parallel_loop",
@@ -129,14 +195,16 @@ def analyze_file(path: Path) -> Analysis:
                 f"over `{loop.iter_name}` — good candidate for ray.remote fan-out."
             ],
         )
-    if blockers:
+    if df_apply:
         return Analysis(
             path=Path(path),
-            pattern="unknown",
-            loop=loop,
-            blockers=blockers,
+            pattern="dataframe_apply",
+            df_apply=df_apply,
             recommended_framework="ray",
-            notes=["Shared mutable state would cause races under parallel execution."],
+            notes=[
+                f"DataFrame apply on line {df_apply.line}: `{df_apply.df_name}[{df_apply.target_col!r}] "
+                f"= {df_apply.df_name}.apply({df_apply.func_name}, axis=1)` — can be chunked across workers."
+            ],
         )
     return Analysis(
         path=Path(path),

@@ -196,7 +196,12 @@ distify 有两层插件，**分别正交**：
 
 ## 状态
 
-早期脚手架。CLI 形态已定型，分析/转换/验证的实现陆续填充中。详见 `DESIGN.md`。
+早期实现。CLI 形态已定型，for-loop 和 DataFrame 两种模式的 Ray 转换已可跑通端到端。
+
+📖 **详细文档**
+- [用户指南](docs/USER_GUIDE.md) — CLI 每个命令的完整参数和使用场景
+- [设计文档](docs/DESIGN.md) — 架构、插件层、模板方法
+- [测试报告](docs/TEST_REPORT.md) — 14 个测试覆盖范围和复现步骤
 
 ## 贡献
 
