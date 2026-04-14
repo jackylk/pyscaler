@@ -3,8 +3,8 @@
 Submits a generated script to a DBay-hosted Ray cluster via HTTP.
 
 Required environment:
-- XSCALE_DBAY_ENDPOINT: base URL of DBay orchestrator (e.g. https://api.dbay.cloud:8443)
-- XSCALE_DBAY_TOKEN:    DBay API key (lk_...)
+- PYSCALER_DBAY_ENDPOINT: base URL of DBay orchestrator (e.g. https://api.dbay.cloud:8443)
+- PYSCALER_DBAY_TOKEN:    DBay API key (lk_...)
 
 Server-side contract (the API pyscaler expects DBay to expose):
 
@@ -46,18 +46,18 @@ class DBayBackend(Backend):
         poll_interval: float = 2.0,
         timeout: float = 3600.0,
     ) -> None:
-        self.endpoint = (endpoint or os.environ.get("XSCALE_DBAY_ENDPOINT", "")).rstrip("/")
-        self.token = token or os.environ.get("XSCALE_DBAY_TOKEN", "")
+        self.endpoint = (endpoint or os.environ.get("PYSCALER_DBAY_ENDPOINT", "")).rstrip("/")
+        self.token = token or os.environ.get("PYSCALER_DBAY_TOKEN", "")
         self.poll_interval = poll_interval
         self.timeout = timeout
         if not self.endpoint:
             raise RuntimeError(
-                "DBay backend requires XSCALE_DBAY_ENDPOINT (or endpoint=) — e.g. "
+                "DBay backend requires PYSCALER_DBAY_ENDPOINT (or endpoint=) — e.g. "
                 "https://api.dbay.cloud:8443"
             )
         if not self.token:
             raise RuntimeError(
-                "DBay backend requires XSCALE_DBAY_TOKEN (or token=) — your DBay API key"
+                "DBay backend requires PYSCALER_DBAY_TOKEN (or token=) — your DBay API key"
             )
 
     def _http(self):

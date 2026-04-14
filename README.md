@@ -56,7 +56,7 @@ pyscaler run ./process_dist.py --backend dbay              --input obs://bkt/d/ 
 |---|---|---|
 | **Ray 本地 embedded** | 开发、小数据 | `pyscaler run ... --backend local` |
 | **本地 Ray 集群** | 你自己机器上的多进程集群 | 先 `ray start --head`，再 `pyscaler run ... --backend auto` |
-| **DBay 远程 Ray** | 大数据、无需自己维护集群 | `export XSCALE_DBAY_TOKEN=...; pyscaler run ... --backend dbay` |
+| **DBay 远程 Ray** | 大数据、无需自己维护集群 | `export PYSCALER_DBAY_TOKEN=...; pyscaler run ... --backend dbay` |
 
 > ⚠️ 集群模式下**输入/输出路径必须是绝对路径或云存储 URI**（obs:// / s3://），相对路径只在 local embedded 模式可靠。这是 Ray 集群的通用限制，不是 pyscaler 独有。
 

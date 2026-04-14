@@ -148,9 +148,35 @@ def test_e2e_against_local_ray_cluster(tmp_path: Path, ray_local_cluster: str):
 
 
 @pytest.mark.skipif(
-    not os.environ.get("XSCALE_DBAY_TEST"),
-    reason="set XSCALE_DBAY_TEST=1 (and DBAY_* creds) to run remote DBay Ray test",
+    not (os.environ.get("PYSCALER_DBAY_TEST")
+         and os.environ.get("PYSCALER_DBAY_ENDPOINT")
+         and os.environ.get("PYSCALER_DBAY_TOKEN")),
+    reason="set PYSCALER_DBAY_TEST=1 + PYSCALER_DBAY_ENDPOINT + PYSCALER_DBAY_TOKEN to run",
 )
 def test_e2e_against_dbay_remote_cluster(tmp_path: Path):
-    """Placeholder for DBay remote Ray cluster E2E. Skipped until DBay backend implemented."""
-    pytest.skip("DBay backend not implemented yet — this test reserves the slot.")
+    """End-to-end against a real DBay-hosted Ray cluster.
+
+    Requires PYSCALER_DBAY_TEST=1, PYSCALER_DBAY_ENDPOINT=https://api.dbay.cloud:8443/api,
+    and PYSCALER_DBAY_TOKEN=<tenant api key>.
+    """
+    from pyscaler.backends.dbay import DBayBackend
+
+    script = tmp_path / "job.py"
+    script.write_text(
+        "import os, time\n"
+        "print('hello from dbay, input=', os.environ.get('INPUT_PATH'))\n"
+        "time.sleep(2)\n"
+        "print('done')\n"
+    )
+
+    backend = DBayBackend(poll_interval=5.0, timeout=600)
+    job_id = backend.submit(script, "obs://test/in/", "obs://test/out/")
+    assert job_id.startswith("dlj_")
+
+    final = backend.wait(job_id)
+    assert final["state"] == "succeeded", final
+    assert final.get("returncode") == 0
+
+    lines = backend.logs(job_id, tail=50)
+    joined = "\n".join(lines)
+    assert "hello from dbay" in joined or "done" in joined, joined[:500]

@@ -4,14 +4,20 @@
 
 ## 总览
 
-**14 / 14 通过** · 耗时 ~33s（大头是 Ray 冷启）
+**19 passed + 1 skipped** · 耗时 ~65s（含 Ray 集群冷启）
 
 ```
 tests/test_cli_smoke.py ........ 6 passed
 tests/test_e2e_ray.py ........... 5 passed
 tests/test_e2e_dataframe.py ..... 2 passed
+tests/test_e2e_ray_cluster.py ... 2 passed + 1 skipped (DBay real)
+tests/test_e2e_dbay.py .......... 3 passed
 tests/test_examples_parse.py .... 1 passed
 ```
+
+> 1 个测试 `test_e2e_against_dbay_remote_cluster` 默认 skip，要真连 DBay 需设：
+> `PYSCALER_DBAY_TEST=1 PYSCALER_DBAY_ENDPOINT=... PYSCALER_DBAY_TOKEN=...`
+> 手动执行已验证通过（~160s，含 CCI Ray 集群冷启）。
 
 ## 覆盖的路径
 

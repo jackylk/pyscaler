@@ -7,7 +7,7 @@ side). This test verifies our client correctly:
   - fetches /v1/ray-jobs/{id}/logs
 
 When the real DBay endpoint ships, flip this to an integration test by setting
-XSCALE_DBAY_ENDPOINT + XSCALE_DBAY_TOKEN and removing the mock.
+PYSCALER_DBAY_ENDPOINT + PYSCALER_DBAY_TOKEN and removing the mock.
 """
 from __future__ import annotations
 
@@ -94,11 +94,11 @@ def mock_dbay_server(monkeypatch):
 
 
 def test_dbay_backend_requires_endpoint_and_token(monkeypatch):
-    monkeypatch.delenv("XSCALE_DBAY_ENDPOINT", raising=False)
-    monkeypatch.delenv("XSCALE_DBAY_TOKEN", raising=False)
-    with pytest.raises(RuntimeError, match="XSCALE_DBAY_ENDPOINT"):
+    monkeypatch.delenv("PYSCALER_DBAY_ENDPOINT", raising=False)
+    monkeypatch.delenv("PYSCALER_DBAY_TOKEN", raising=False)
+    with pytest.raises(RuntimeError, match="PYSCALER_DBAY_ENDPOINT"):
         DBayBackend()
-    with pytest.raises(RuntimeError, match="XSCALE_DBAY_TOKEN"):
+    with pytest.raises(RuntimeError, match="PYSCALER_DBAY_TOKEN"):
         DBayBackend(endpoint="https://api.example.com")
 
 

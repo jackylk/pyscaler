@@ -160,7 +160,7 @@ def run(
     backend=local                → embedded Ray (ray.init in-process)
     backend=ray://HOST:PORT      → Ray cluster (sets RAY_ADDRESS for the script)
     backend=auto                 → Ray cluster via gcs auto-detect
-    backend=dbay                 → DBay remote Ray cluster (needs XSCALE_DBAY_* env)
+    backend=dbay                 → DBay remote Ray cluster (needs PYSCALER_DBAY_* env)
     """
     if not script.exists():
         console.print(f"[red]Script not found:[/] {script}")
