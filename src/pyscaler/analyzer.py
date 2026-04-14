@@ -8,11 +8,27 @@ from pathlib import Path
 
 @dataclass
 class LoopCandidate:
-    """A top-level for-loop that looks like `for x in items: f(x)`."""
+    """A fan-out pattern — one function call per element of an iterable.
+
+    Unifies four source shapes, all convertible to
+    `[result =] ray.get([f.remote(*vars) for *vars in iter_expr])`:
+
+      kind="for_loop"  : for x in xs: f(x)
+      kind="zip_loop"  : for x, y in zip(a, b): f(x, y)
+      kind="list_comp" : results = [f(x) for x in xs]
+      kind="map_call"  : results = list(map(f, xs))
+    """
     line: int
-    iter_name: str           # e.g. "files"
-    var_name: str            # e.g. "f"
-    call_func: str           # e.g. "process_file"
+    kind: str                # for_loop | zip_loop | list_comp | map_call
+    iter_name: str           # the original iterable expression (unparsed)
+    var_names: list[str]     # loop variables, in order (len 1 for most, >1 for zip)
+    call_func: str           # function being called on each element
+    assign_target: str | None = None  # None for bare statement; variable name if result is assigned
+
+    # Back-compat: older code uses .var_name (singular)
+    @property
+    def var_name(self) -> str:
+        return self.var_names[0] if self.var_names else ""
 
 
 @dataclass
@@ -39,8 +55,8 @@ class Analysis:
         return self.pattern != "unknown" and not self.blockers
 
 
-def _find_parallel_loop(tree: ast.Module) -> LoopCandidate | None:
-    """Look for `for x in items: f(x)` inside `if __name__ == '__main__':` or at module top."""
+def _collect_bodies(tree: ast.Module) -> list[list[ast.stmt]]:
+    """Return module-top body + __main__ body, since those are the candidate scopes."""
     bodies: list[list[ast.stmt]] = [tree.body]
     for node in tree.body:
         if (
@@ -50,35 +66,142 @@ def _find_parallel_loop(tree: ast.Module) -> LoopCandidate | None:
             and node.test.left.id == "__name__"
         ):
             bodies.append(node.body)
+    return bodies
 
-    for body in bodies:
+
+def _call_uses_all_vars(call: ast.Call, var_names: list[str]) -> bool:
+    """Every loop variable must appear as a positional arg of the call."""
+    arg_names = {a.id for a in call.args if isinstance(a, ast.Name)}
+    return all(v in arg_names for v in var_names)
+
+
+def _find_parallel_loop(tree: ast.Module) -> LoopCandidate | None:
+    """Match four fan-out shapes. First one found wins."""
+    for body in _collect_bodies(tree):
         for stmt in body:
-            if not isinstance(stmt, ast.For):
-                continue
-            if not isinstance(stmt.target, ast.Name):
-                continue
-            if len(stmt.body) != 1:
-                continue
-            first = stmt.body[0]
-            # Accept either `f(x)` (Expr→Call) or `y = f(x)` (Assign→Call)
-            call = None
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Call):
-                call = first.value
-            elif isinstance(first, ast.Assign) and isinstance(first.value, ast.Call):
-                call = first.value
-            if call is None or not isinstance(call.func, ast.Name):
-                continue
-            # Ensure it passes the loop variable (anywhere in args)
-            if not any(isinstance(a, ast.Name) and a.id == stmt.target.id for a in call.args):
-                continue
-            iter_name = ast.unparse(stmt.iter)
-            return LoopCandidate(
-                line=stmt.lineno,
-                iter_name=iter_name,
-                var_name=stmt.target.id,
-                call_func=call.func.id,
-            )
+            # Shape 1 & 2: for-loop (single var) or for-with-zip (tuple unpack)
+            if isinstance(stmt, ast.For) and len(stmt.body) == 1:
+                cand = _match_for_loop(stmt)
+                if cand:
+                    return cand
+            # Shape 3: results = [f(x) for x in xs]
+            if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 \
+                    and isinstance(stmt.targets[0], ast.Name):
+                cand = _match_list_comp(stmt)
+                if cand:
+                    return cand
+                cand = _match_map_call(stmt)
+                if cand:
+                    return cand
     return None
+
+
+def _match_for_loop(stmt: ast.For) -> LoopCandidate | None:
+    """for x in xs: f(x)        →  for_loop
+    for x, y in zip(a, b): f(x, y)  →  zip_loop
+    Body must be a single call that uses every loop variable.
+    """
+    # Single var: `for x in xs:`
+    var_names: list[str]
+    kind: str
+    iter_expr = stmt.iter
+    if isinstance(stmt.target, ast.Name):
+        var_names = [stmt.target.id]
+        # If iter is `zip(...)` with a Name target, that's invalid Python; skip
+        kind = "for_loop"
+    elif isinstance(stmt.target, ast.Tuple) and all(isinstance(e, ast.Name) for e in stmt.target.elts):
+        # Only consider zip unpack if iter IS a zip(...) call
+        if not (isinstance(iter_expr, ast.Call)
+                and isinstance(iter_expr.func, ast.Name)
+                and iter_expr.func.id == "zip"):
+            return None
+        var_names = [e.id for e in stmt.target.elts]  # type: ignore[union-attr]
+        kind = "zip_loop"
+    else:
+        return None
+
+    first = stmt.body[0]
+    call: ast.Call | None = None
+    assign_target: str | None = None
+    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Call):
+        call = first.value
+    elif isinstance(first, ast.Assign) and len(first.targets) == 1 \
+            and isinstance(first.targets[0], ast.Name) \
+            and isinstance(first.value, ast.Call):
+        call = first.value
+        # intra-loop assignment is discarded when we fan out; skip if it looks intentional
+        # (the user probably wanted to collect results — tell them to use list-comp instead)
+        return None
+    if call is None or not isinstance(call.func, ast.Name):
+        return None
+    if not _call_uses_all_vars(call, var_names):
+        return None
+
+    return LoopCandidate(
+        line=stmt.lineno,
+        kind=kind,
+        iter_name=ast.unparse(iter_expr),
+        var_names=var_names,
+        call_func=call.func.id,
+        assign_target=assign_target,
+    )
+
+
+def _match_list_comp(stmt: ast.Assign) -> LoopCandidate | None:
+    """results = [f(x) for x in xs]  →  list_comp
+    Only accept single-generator, single-var comprehensions where the elt is a pure call.
+    """
+    target = stmt.targets[0]
+    if not isinstance(target, ast.Name):
+        return None
+    value = stmt.value
+    if not isinstance(value, ast.ListComp) or len(value.generators) != 1:
+        return None
+    gen = value.generators[0]
+    if gen.ifs or gen.is_async:
+        return None
+    if not isinstance(gen.target, ast.Name):
+        return None
+    if not isinstance(value.elt, ast.Call) or not isinstance(value.elt.func, ast.Name):
+        return None
+    var = gen.target.id
+    if not _call_uses_all_vars(value.elt, [var]):
+        return None
+    return LoopCandidate(
+        line=stmt.lineno,
+        kind="list_comp",
+        iter_name=ast.unparse(gen.iter),
+        var_names=[var],
+        call_func=value.elt.func.id,
+        assign_target=target.id,
+    )
+
+
+def _match_map_call(stmt: ast.Assign) -> LoopCandidate | None:
+    """results = list(map(f, xs))  →  map_call (strictly list(map(...)), 2-arg map)."""
+    target = stmt.targets[0]
+    if not isinstance(target, ast.Name):
+        return None
+    v = stmt.value
+    if not (isinstance(v, ast.Call)
+            and isinstance(v.func, ast.Name)
+            and v.func.id == "list"
+            and len(v.args) == 1
+            and isinstance(v.args[0], ast.Call)):
+        return None
+    inner = v.args[0]
+    if not (isinstance(inner.func, ast.Name) and inner.func.id == "map"):
+        return None
+    if len(inner.args) != 2 or not isinstance(inner.args[0], ast.Name):
+        return None
+    return LoopCandidate(
+        line=stmt.lineno,
+        kind="map_call",
+        iter_name=ast.unparse(inner.args[1]),
+        var_names=["_x"],  # synthetic — we'll emit [f.remote(_x) for _x in xs]
+        call_func=inner.args[0].id,
+        assign_target=target.id,
+    )
 
 
 def _find_global_mutation_blockers(tree: ast.Module) -> list[str]:
@@ -185,14 +308,20 @@ def analyze_file(path: Path) -> Analysis:
             notes=["Shared mutable state would cause races under parallel execution."],
         )
     if loop:
+        pretty = {
+            "for_loop": "for-loop",
+            "zip_loop": "for/zip loop",
+            "list_comp": "list comprehension",
+            "map_call": "list(map(...))",
+        }.get(loop.kind, loop.kind)
         return Analysis(
             path=Path(path),
             pattern="parallel_loop",
             loop=loop,
             recommended_framework="ray",
             notes=[
-                f"Top-level for-loop on line {loop.line} calls `{loop.call_func}({loop.var_name})` "
-                f"over `{loop.iter_name}` — good candidate for ray.remote fan-out."
+                f"{pretty} on line {loop.line} calls `{loop.call_func}(...)` over "
+                f"`{loop.iter_name}` — good candidate for ray.remote fan-out."
             ],
         )
     if df_apply:

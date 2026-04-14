@@ -23,11 +23,12 @@ class RayFramework(Framework):
         if pattern == "parallel_loop":
             loop = analysis["loop"]
             self._decorate_function(tree, loop["call_func"])
-            self._replace_loop(tree, loop["call_func"], loop["var_name"], loop["iter_name"])
+            self._replace_fanout(tree, loop)
             self._ensure_ray_import_and_init(tree, workers)
             summary = {
                 "framework": "ray",
                 "pattern": "parallel_loop",
+                "kind": loop.get("kind", "for_loop"),
                 "decorated_function": loop["call_func"],
                 "iter": loop["iter_name"],
                 "workers": workers,
@@ -47,6 +48,7 @@ class RayFramework(Framework):
         else:
             raise NotImplementedError(f"Ray converter can't handle pattern={pattern!r} yet.")
 
+        ast.fix_missing_locations(tree)
         converted = ast.unparse(tree) + "\n"
         diff = "".join(
             difflib.unified_diff(
@@ -75,52 +77,85 @@ class RayFramework(Framework):
                     )
 
     @staticmethod
-    def _replace_loop(tree: ast.Module, call_func: str, var_name: str, iter_name: str) -> None:
-        """Replace `for x in items: call_func(x)` with
-        `ray.get([call_func.remote(x) for x in items])`.
-        """
-        iter_expr = ast.parse(iter_name, mode="eval").body
-        new_stmt = ast.Expr(
-            value=ast.Call(
-                func=ast.Attribute(value=ast.Name(id="ray", ctx=ast.Load()), attr="get", ctx=ast.Load()),
-                args=[
-                    ast.ListComp(
-                        elt=ast.Call(
-                            func=ast.Attribute(
-                                value=ast.Name(id=call_func, ctx=ast.Load()),
-                                attr="remote",
-                                ctx=ast.Load(),
-                            ),
-                            args=[ast.Name(id=var_name, ctx=ast.Load())],
-                            keywords=[],
-                        ),
-                        generators=[
-                            ast.comprehension(
-                                target=ast.Name(id=var_name, ctx=ast.Store()),
-                                iter=iter_expr,
-                                ifs=[],
-                                is_async=0,
-                            )
-                        ],
-                    )
-                ],
-                keywords=[],
+    def _build_ray_get_comp(call_func: str, var_names: list[str], iter_expr: ast.AST) -> ast.Call:
+        """Build `ray.get([call_func.remote(*vars) for <vars> in <iter_expr>])` as AST."""
+        # Generator target: single Name or a Tuple of Names (for zip unpack)
+        if len(var_names) == 1:
+            gen_target: ast.expr = ast.Name(id=var_names[0], ctx=ast.Store())
+        else:
+            gen_target = ast.Tuple(
+                elts=[ast.Name(id=v, ctx=ast.Store()) for v in var_names],
+                ctx=ast.Store(),
             )
+        return ast.Call(
+            func=ast.Attribute(value=ast.Name(id="ray", ctx=ast.Load()), attr="get", ctx=ast.Load()),
+            args=[
+                ast.ListComp(
+                    elt=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id=call_func, ctx=ast.Load()),
+                            attr="remote",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Name(id=v, ctx=ast.Load()) for v in var_names],
+                        keywords=[],
+                    ),
+                    generators=[ast.comprehension(
+                        target=gen_target,
+                        iter=iter_expr,
+                        ifs=[],
+                        is_async=0,
+                    )],
+                ),
+            ],
+            keywords=[],
         )
 
-        def replace_in(body: list[ast.stmt]) -> None:
-            for i, stmt in enumerate(body):
-                if (
-                    isinstance(stmt, ast.For)
-                    and isinstance(stmt.target, ast.Name)
-                    and stmt.target.id == var_name
-                    and isinstance(stmt.iter, ast.AST)
-                    and ast.unparse(stmt.iter) == iter_name
-                ):
-                    body[i] = new_stmt
-                    return
+    @classmethod
+    def _replace_fanout(cls, tree: ast.Module, loop: dict) -> None:
+        """Unified rewrite for for_loop / zip_loop / list_comp / map_call."""
+        kind = loop.get("kind", "for_loop")
+        call_func = loop["call_func"]
+        var_names: list[str] = loop.get("var_names") or [loop.get("var_name")]
+        iter_name: str = loop["iter_name"]
+        assign_target: str | None = loop.get("assign_target")
 
-        replace_in(tree.body)
+        iter_expr = ast.parse(iter_name, mode="eval").body
+        ray_get_call = cls._build_ray_get_comp(call_func, var_names, iter_expr)
+
+        # Wrap in Assign or bare Expr depending on pattern
+        if assign_target:
+            replacement: ast.stmt = ast.Assign(
+                targets=[ast.Name(id=assign_target, ctx=ast.Store())],
+                value=ray_get_call,
+            )
+        else:
+            replacement = ast.Expr(value=ray_get_call)
+
+        def match(stmt: ast.stmt) -> bool:
+            if kind in ("for_loop", "zip_loop") and isinstance(stmt, ast.For):
+                return ast.unparse(stmt.iter) == iter_name
+            if kind == "list_comp" and isinstance(stmt, ast.Assign):
+                if len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name) \
+                        and stmt.targets[0].id == assign_target:
+                    return isinstance(stmt.value, ast.ListComp)
+            if kind == "map_call" and isinstance(stmt, ast.Assign):
+                if len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name) \
+                        and stmt.targets[0].id == assign_target:
+                    v = stmt.value
+                    return (isinstance(v, ast.Call) and isinstance(v.func, ast.Name)
+                            and v.func.id == "list")
+            return False
+
+        def replace_in(body: list[ast.stmt]) -> bool:
+            for i, stmt in enumerate(body):
+                if match(stmt):
+                    body[i] = replacement
+                    return True
+            return False
+
+        if replace_in(tree.body):
+            return
         for node in tree.body:
             if (
                 isinstance(node, ast.If)
@@ -128,7 +163,8 @@ class RayFramework(Framework):
                 and isinstance(node.test.left, ast.Name)
                 and node.test.left.id == "__name__"
             ):
-                replace_in(node.body)
+                if replace_in(node.body):
+                    return
 
     @staticmethod
     def _rewrite_dataframe_apply(tree: ast.Module, info: dict, workers: int) -> None:

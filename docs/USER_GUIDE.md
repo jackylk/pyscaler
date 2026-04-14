@@ -70,10 +70,13 @@ pyscaler convert ./process.py \
 
 **支持的模式**：
 
-| Pattern | 源 | 目标 |
+| Pattern · kind | 源 | 目标 |
 |---|---|---|
-| `parallel_loop` | `for x in items: f(x)` | `ray.get([f.remote(x) for x in items])` + `@ray.remote` |
-| `dataframe_apply` | `df[col] = df.apply(func, axis=1)` | 切片 → `ray.remote` 分片 apply → `pd.concat` |
+| `parallel_loop` · `for_loop` | `for x in xs: f(x)` | `ray.get([f.remote(x) for x in xs])` + `@ray.remote` |
+| `parallel_loop` · `zip_loop` | `for x,y in zip(a,b): f(x,y)` | `ray.get([f.remote(x,y) for x,y in zip(a,b)])` |
+| `parallel_loop` · `list_comp` | `r = [f(x) for x in xs]` | `r = ray.get([f.remote(x) for x in xs])` |
+| `parallel_loop` · `map_call` | `r = list(map(f, xs))` | `r = ray.get([f.remote(x) for x in xs])` |
+| `dataframe_apply` | `df[col] = df.apply(func, axis=1)` | 切片 → 分片 apply → `pd.concat` |
 
 **退出码**：
 - `0`：转换成功

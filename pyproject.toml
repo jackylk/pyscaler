@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyscaler"
-version = "0.0.2"
+version = "0.0.3"
 description = "Turn single-machine Python data code into a distributed script — framework-agnostic, run anywhere."
 readme = "README.md"
 requires-python = ">=3.10"
