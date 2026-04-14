@@ -218,9 +218,21 @@ class RayFramework(Framework):
                     return True
             return False
 
-        ray_init_stmt = ast.parse(
-            f"ray.init(ignore_reinit_error=True, num_cpus={workers})"
-        ).body[0]
+        # Generated init: auto-detects RAY_ADDRESS (remote cluster) vs local embedded runtime.
+        # Works for all three modes: Ray local / Ray local cluster / DBay remote.
+        # When connecting to a cluster, upload the driver's CWD to workers so relative
+        # paths (./data/input/...) resolve — local mode doesn't need this since workers
+        # share the driver's process.
+        ray_init_src = textwrap.dedent(f"""
+            import os as _os
+            _ray_addr = _os.environ.get("RAY_ADDRESS")
+            if _ray_addr:
+                ray.init(address=_ray_addr, ignore_reinit_error=True,
+                         runtime_env={{"working_dir": "."}})
+            else:
+                ray.init(ignore_reinit_error=True, num_cpus={workers})
+        """).lstrip()
+        ray_init_stmts = ast.parse(ray_init_src).body
 
         for node in tree.body:
             if (
@@ -230,9 +242,9 @@ class RayFramework(Framework):
                 and node.test.left.id == "__name__"
             ):
                 if not has_ray_init(node.body):
-                    node.body.insert(0, ray_init_stmt)
+                    node.body[0:0] = ray_init_stmts
                 return
 
         if not has_ray_init(tree.body):
             import_count = sum(1 for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom)))
-            tree.body.insert(import_count, ray_init_stmt)
+            tree.body[import_count:import_count] = ray_init_stmts
