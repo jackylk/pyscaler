@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "distify contributors" }]
-keywords = ["distributed", "ray", "dask", "spark", "parallel", "code-transform"]
+keywords = ["distributed", "ray", "aura", "parallel", "code-transform"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -27,7 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ray = ["ray[default]>=2.9", "pandas>=2.0", "pyarrow>=14"]
-dask = ["dask[complete]>=2024.1"]
+aura = []  # aura-sdk TBD
 llm = ["anthropic>=0.40", "openai>=1.40"]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "build", "twine"]
 

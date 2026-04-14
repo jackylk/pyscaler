@@ -20,17 +20,17 @@ def test_help_lists_commands():
         assert cmd in result.output
 
 
-def test_frameworks_command_lists_ray_and_dask():
+def test_frameworks_command_lists_ray_and_aura():
     result = runner.invoke(app, ["frameworks"])
     assert result.exit_code == 0
     assert "ray" in result.output
-    assert "dask" in result.output
+    assert "aura" in result.output
 
 
 def test_framework_registry():
     names = available_frameworks()
     assert "ray" in names
-    assert "dask" in names
+    assert "aura" in names
 
 
 def test_get_framework_ray():

@@ -2,7 +2,7 @@
 
 [English](README.en.md) · 中文
 
-把你的单机 Python 数据处理代码变成分布式脚本。框架无关（支持 Ray，后续 Dask 等），可以跑在你自己的集群上，也可以跑在 DBay 上。
+把你的单机 Python 数据处理代码变成分布式脚本。目前支持 **Ray**，即将支持 **Aura**。可以跑在你自己的集群上，也可以跑在 DBay 上。
 
 ## 为什么做这个
 
@@ -21,8 +21,8 @@
 pip install distify
 
 # 带上框架运行时
-pip install "distify[ray]"        # Ray 后端
-pip install "distify[dask]"       # Dask 后端（规划中）
+pip install "distify[ray]"        # Ray 支持
+pip install "distify[aura]"       # Aura 支持（规划中）
 pip install "distify[llm]"        # 启用 LLM 辅助转换
 
 # 从源码开发安装
@@ -137,7 +137,7 @@ distify run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket
 看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。distify 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
 
 **Q: 一定要用 Ray 吗？**
-不用。`--framework` 参数可以选 `ray` 或 `dask`（开发中）。转换后的脚本是标准框架代码，distify 不会锁定你。
+目前是。下一个支持的框架是 Aura（规划中），用 `--framework aura` 启用。转换后的脚本是标准框架代码，distify 不会锁定你。
 
 **Q: 转换用 LLM 吗？**
 默认不用，纯模板转换，离线可跑。加 `--llm-assist` 才会用 LLM 帮忙填一些边角情况。
@@ -148,10 +148,10 @@ distify 有两层插件，**分别正交**：
 
 | 层 | 职责 | 例子 |
 |---|---|---|
-| **Framework**（框架） | 决定代码怎么改 | `ray` · `dask` · 未来 `spark` |
+| **Framework**（框架） | 决定代码怎么改 | `ray` · `aura`（规划中） |
 | **Backend**（后端） | 决定脚本在哪执行 | `local` · `ray://集群地址` · `dbay` |
 
-一份 Ray 脚本可以跑在本地、自己的 Ray 集群，或 DBay 的 Ray 服务；一份 Dask 脚本同理。**转换后的代码不绑定任何执行环境**。
+一份 Ray 脚本可以跑在本地、自己的 Ray 集群，或 DBay 的 Ray 服务。**转换后的代码不绑定任何执行环境**。
 
 ## 四个命令
 

@@ -1,12 +1,12 @@
 """Framework registry — add new frameworks here."""
 from .base import Framework
 from .ray import RayFramework
-from .dask import DaskFramework
+from .aura import AuraFramework
 
 
 _REGISTRY: dict[str, type[Framework]] = {
     "ray": RayFramework,
-    "dask": DaskFramework,
+    "aura": AuraFramework,
 }
 
 
