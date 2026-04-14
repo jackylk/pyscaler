@@ -147,19 +147,70 @@ def test_e2e_against_local_ray_cluster(tmp_path: Path, ray_local_cluster: str):
     assert actual == reference, "cluster run produced different outputs from reference"
 
 
-@pytest.mark.skipif(
-    not (os.environ.get("PYSCALER_DBAY_TEST")
-         and os.environ.get("PYSCALER_DBAY_ENDPOINT")
-         and os.environ.get("PYSCALER_DBAY_TOKEN")),
-    reason="set PYSCALER_DBAY_TEST=1 + PYSCALER_DBAY_ENDPOINT + PYSCALER_DBAY_TOKEN to run",
-)
-def test_e2e_against_dbay_remote_cluster(tmp_path: Path):
+def _has_dbay_creds() -> bool:
+    """Any of:
+      - PYSCALER_DBAY_TOKEN (existing tenant key)
+      - PYSCALER_DBAY_ADMIN_TOKEN (we'll auto-create a throwaway tenant)
+    plus PYSCALER_DBAY_ENDPOINT.
+    """
+    ep = os.environ.get("PYSCALER_DBAY_ENDPOINT")
+    return bool(ep) and bool(
+        os.environ.get("PYSCALER_DBAY_TOKEN") or os.environ.get("PYSCALER_DBAY_ADMIN_TOKEN")
+    )
+
+
+def _provision_tenant(endpoint_api: str, admin_token: str) -> str:
+    """Create a throwaway tenant via admin invite flow; return its api_key."""
+    import random
+    import time as _t
+    import httpx as _httpx
+
+    # Admin API is served at the base (without /api suffix)
+    base = endpoint_api.rstrip("/")
+    if base.endswith("/api"):
+        base = base[:-4]
+
+    with _httpx.Client(verify=False, timeout=30.0) as c:
+        r = c.post(
+            f"{base}/api/v1/admin/invite-codes",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"max_uses": 1},
+        )
+        r.raise_for_status()
+        invite = r.json()["code"]
+        ts = int(_t.time())
+        fake_ip = f"10.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,254)}"
+        r = c.post(
+            f"{base}/api/v1/tenants",
+            headers={"X-Forwarded-For": fake_ip},
+            json={
+                "username": f"pyscaler-ci-{ts}",
+                "password": f"E2eTest@{ts}",
+                "name": f"pyscaler-ci-{ts}",
+                "inviteCode": invite,
+            },
+        )
+        r.raise_for_status()
+        return r.json()["api_key"]
+
+
+@pytest.mark.skipif(not _has_dbay_creds(), reason=(
+    "needs PYSCALER_DBAY_ENDPOINT + (PYSCALER_DBAY_TOKEN or PYSCALER_DBAY_ADMIN_TOKEN)"
+))
+def test_e2e_against_dbay_remote_cluster(tmp_path: Path, monkeypatch):
     """End-to-end against a real DBay-hosted Ray cluster.
 
-    Requires PYSCALER_DBAY_TEST=1, PYSCALER_DBAY_ENDPOINT=https://api.dbay.cloud:8443/api,
-    and PYSCALER_DBAY_TOKEN=<tenant api key>.
+    Modes (first that matches wins):
+    - PYSCALER_DBAY_TOKEN set → use that tenant key directly
+    - PYSCALER_DBAY_ADMIN_TOKEN set → auto-provision a throwaway tenant for this test
     """
     from pyscaler.backends.dbay import DBayBackend
+
+    # If only admin token is present, provision a tenant for this run
+    if not os.environ.get("PYSCALER_DBAY_TOKEN"):
+        endpoint = os.environ["PYSCALER_DBAY_ENDPOINT"]
+        admin = os.environ["PYSCALER_DBAY_ADMIN_TOKEN"]
+        monkeypatch.setenv("PYSCALER_DBAY_TOKEN", _provision_tenant(endpoint, admin))
 
     script = tmp_path / "job.py"
     script.write_text(
