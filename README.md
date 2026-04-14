@@ -33,36 +33,9 @@ pip install -e ".[ray,dev]"
 
 ## 快速上手
 
-```bash
-# 1. 分析 —— 找瓶颈、推荐框架、预估加速比
-pyscaler analyze ./process.py
+### 先看效果：3 条命令看加速比
 
-# 2. 转换 —— 生成 process_dist.py + diff
-pyscaler convert ./process.py --framework ray --workers 8
-
-# 3. 验证 —— 取 5% 样本跑两个版本，对比正确性和实测加速
-pyscaler verify ./process_dist.py --input ./data/ --sample 0.05
-
-# 4. 执行 —— 选择后端（三种模式）
-pyscaler run ./process_dist.py --backend local             --input ./data/      # Ray 本地 embedded
-pyscaler run ./process_dist.py --backend auto              --input /abs/data/   # 你自己的本地 Ray 集群
-pyscaler run ./process_dist.py --backend ray://head:10001  --input obs://bkt/d/ # 远程 Ray 集群
-pyscaler run ./process_dist.py --backend dbay              --input obs://bkt/d/ # 托管在 DBay 的 Ray
-```
-
-### 三种 Ray 执行模式
-
-| 模式 | 何时用 | 怎么启动 |
-|---|---|---|
-| **Ray 本地 embedded** | 开发、小数据 | `pyscaler run ... --backend local` |
-| **本地 Ray 集群** | 你自己机器上的多进程集群 | 先 `ray start --head`，再 `pyscaler run ... --backend auto` |
-| **DBay 远程 Ray** | 大数据、无需自己维护集群 | `export PYSCALER_DBAY_TOKEN=...; pyscaler run ... --backend dbay` |
-
-> ⚠️ 集群模式下**输入/输出路径必须是绝对路径或云存储 URI**（obs:// / s3://），相对路径只在 local embedded 模式可靠。这是 Ray 集群的通用限制，不是 pyscaler 独有。
-
-## 🚀 先看效果：3 条命令看加速比
-
-仓库里的 `examples/07_demo_compute_stats.py` 会自动生成 20 个 JSON 文件并做 CPU 计算，**直接测得真实加速比**：
+仓库里的 `examples/07_demo_compute_stats.py` 会自动生成 20 个 JSON 文件、每个文件带 CPU 负载，**直接测得真实加速比**：
 
 ```bash
 git clone https://github.com/jackylk/pyscaler && cd pyscaler
@@ -75,7 +48,34 @@ rm -rf data/out
 python 07_demo_compute_stats_dist.py     # Ray 版：~1.5-2.5s  → 2.5-3× 加速
 ```
 
-看完效果再看下面完整教程。
+### 四个命令的完整工作流
+
+```bash
+# 1. 分析 —— 找瓶颈、识别模式、预估加速比
+pyscaler analyze ./process.py
+
+# 2. 转换 —— 生成 process_dist.py + diff
+pyscaler convert ./process.py --framework ray --workers 8
+
+# 3. 验证 —— 跑两个版本对比正确性和实测加速
+pyscaler verify ./process_dist.py --input ./data/ --sample 0.05
+
+# 4. 执行 —— 选择后端（三种模式，详见下表）
+pyscaler run ./process_dist.py --backend local             --input ./data/
+pyscaler run ./process_dist.py --backend auto              --input /abs/data/
+pyscaler run ./process_dist.py --backend ray://head:10001  --input obs://bkt/d/
+pyscaler run ./process_dist.py --backend dbay              --input obs://bkt/d/
+```
+
+### 三种 Ray 执行模式
+
+| 模式 | 何时用 | 怎么启动 |
+|---|---|---|
+| **Ray 本地 embedded** | 开发、小数据 | `pyscaler run ... --backend local` |
+| **本地 Ray 集群** | 你自己机器上的多进程集群 | 先 `ray start --head`，再 `pyscaler run ... --backend auto` |
+| **DBay 远程 Ray** | 大数据、无需自己维护集群 | `export PYSCALER_DBAY_TOKEN=...; pyscaler run ... --backend dbay` |
+
+> ⚠️ 集群模式下**输入/输出路径必须是绝对路径或云存储 URI**（obs:// / s3://），相对路径只在 local embedded 模式可靠。这是 Ray 集群的通用限制，不是 pyscaler 独有。
 
 ## 5 分钟上手教程
 
