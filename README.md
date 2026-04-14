@@ -60,6 +60,23 @@ pyscaler run ./process_dist.py --backend dbay              --input obs://bkt/d/ 
 
 > ⚠️ 集群模式下**输入/输出路径必须是绝对路径或云存储 URI**（obs:// / s3://），相对路径只在 local embedded 模式可靠。这是 Ray 集群的通用限制，不是 pyscaler 独有。
 
+## 🚀 先看效果：3 条命令看加速比
+
+仓库里的 `examples/07_demo_compute_stats.py` 会自动生成 20 个 JSON 文件并做 CPU 计算，**直接测得真实加速比**：
+
+```bash
+git clone https://github.com/jackylk/pyscaler && cd pyscaler
+pip install -e ".[ray]"
+
+cd examples
+pyscaler convert 07_demo_compute_stats.py --workers 4
+python 07_demo_compute_stats.py          # 原版：~4-6s
+rm -rf data/out
+python 07_demo_compute_stats_dist.py     # Ray 版：~1.5-2.5s  → 2.5-3× 加速
+```
+
+看完效果再看下面完整教程。
+
 ## 5 分钟上手教程
 
 这个教程用仓库里自带的示例代码，走一遍完整流程。
