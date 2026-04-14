@@ -207,12 +207,13 @@ pyscaler 有两层插件，**分别正交**：
 
 ## 状态
 
-早期实现。CLI 形态已定型，for-loop 和 DataFrame 两种模式的 Ray 转换已可跑通端到端。
+早期实现。CLI 形态已定型。已支持 5 种模式（4 种 fan-out 变体 + DataFrame apply），对接 Ray 本地 / Ray 本地集群 / DBay 远程集群三种后端。
 
 📖 **详细文档**
+- **[支持的代码形态](docs/SUPPORTED_PATTERNS.md)** — 哪些代码能转、哪些不能、遇到不能转怎么办
 - [用户指南](docs/USER_GUIDE.md) — CLI 每个命令的完整参数和使用场景
 - [设计文档](docs/DESIGN.md) — 架构、插件层、模板方法
-- [测试报告](docs/TEST_REPORT.md) — 14 个测试覆盖范围和复现步骤
+- [测试报告](docs/TEST_REPORT.md) — 测试覆盖范围和复现步骤
 
 ## 贡献
 
