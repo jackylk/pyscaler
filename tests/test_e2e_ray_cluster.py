@@ -18,9 +18,9 @@ import pytest
 
 ray = pytest.importorskip("ray")
 
-from xscale.analyzer import analyze_file
-from xscale.backends.local import LocalBackend
-from xscale.frameworks.registry import get_framework
+from pyscaler.analyzer import analyze_file
+from pyscaler.backends.local import LocalBackend
+from pyscaler.frameworks.registry import get_framework
 
 
 FIXTURE_TEMPLATE = textwrap.dedent('''

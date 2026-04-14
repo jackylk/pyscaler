@@ -1,4 +1,4 @@
-# xscale
+# pyscaler
 
 [English](README.en.md) · 中文
 
@@ -12,22 +12,22 @@
 - 改完不知道对不对，也不知道真正能加速多少
 - 希望转换完能跑在自己的集群上，不想被某个平台绑定
 
-`xscale` 专注做好一件事：**把 Python 变成可验证的分布式脚本**，运行在哪儿是你的事。
+`pyscaler` 专注做好一件事：**把 Python 变成可验证的分布式脚本**，运行在哪儿是你的事。
 
 ## 安装
 
 ```bash
 # 从 PyPI 安装（发布后）
-pip install xscale
+pip install pyscaler
 
 # 带上框架运行时
-pip install "xscale[ray]"        # Ray 支持
-pip install "xscale[aura]"       # Aura 支持（规划中）
-pip install "xscale[llm]"        # 启用 LLM 辅助转换
+pip install "pyscaler[ray]"        # Ray 支持
+pip install "pyscaler[aura]"       # Aura 支持（规划中）
+pip install "pyscaler[llm]"        # 启用 LLM 辅助转换
 
 # 从源码开发安装
-git clone https://github.com/jackylk/xscale
-cd xscale
+git clone https://github.com/jackylk/pyscaler
+cd pyscaler
 pip install -e ".[ray,dev]"
 ```
 
@@ -35,19 +35,30 @@ pip install -e ".[ray,dev]"
 
 ```bash
 # 1. 分析 —— 找瓶颈、推荐框架、预估加速比
-xscale analyze ./process.py
+pyscaler analyze ./process.py
 
 # 2. 转换 —— 生成 process_dist.py + diff
-xscale convert ./process.py --framework ray --workers 8
+pyscaler convert ./process.py --framework ray --workers 8
 
 # 3. 验证 —— 取 5% 样本跑两个版本，对比正确性和实测加速
-xscale verify ./process_dist.py --input ./data/ --sample 0.05
+pyscaler verify ./process_dist.py --input ./data/ --sample 0.05
 
-# 4. 执行 —— 选择后端
-xscale run ./process_dist.py --backend local             --input ./data/
-xscale run ./process_dist.py --backend ray://head:10001  --input ./data/
-xscale run ./process_dist.py --backend dbay              --input obs://bucket/data/
+# 4. 执行 —— 选择后端（三种模式）
+pyscaler run ./process_dist.py --backend local             --input ./data/      # Ray 本地 embedded
+pyscaler run ./process_dist.py --backend auto              --input /abs/data/   # 你自己的本地 Ray 集群
+pyscaler run ./process_dist.py --backend ray://head:10001  --input obs://bkt/d/ # 远程 Ray 集群
+pyscaler run ./process_dist.py --backend dbay              --input obs://bkt/d/ # 托管在 DBay 的 Ray
 ```
+
+### 三种 Ray 执行模式
+
+| 模式 | 何时用 | 怎么启动 |
+|---|---|---|
+| **Ray 本地 embedded** | 开发、小数据 | `pyscaler run ... --backend local` |
+| **本地 Ray 集群** | 你自己机器上的多进程集群 | 先 `ray start --head`，再 `pyscaler run ... --backend auto` |
+| **DBay 远程 Ray** | 大数据、无需自己维护集群 | `export XSCALE_DBAY_TOKEN=...; pyscaler run ... --backend dbay` |
+
+> ⚠️ 集群模式下**输入/输出路径必须是绝对路径或云存储 URI**（obs:// / s3://），相对路径只在 local embedded 模式可靠。这是 Ray 集群的通用限制，不是 pyscaler 独有。
 
 ## 5 分钟上手教程
 
@@ -56,9 +67,9 @@ xscale run ./process_dist.py --backend dbay              --input obs://bucket/da
 ### 第 1 步：准备环境
 
 ```bash
-git clone https://github.com/jackylk/xscale
-cd xscale
-pip install -e ".[ray,dev]"     # 装 xscale + Ray 运行时
+git clone https://github.com/jackylk/pyscaler
+cd pyscaler
+pip install -e ".[ray,dev]"     # 装 pyscaler + Ray 运行时
 ```
 
 ### 第 2 步：看一下你要转换的代码
@@ -75,13 +86,13 @@ for f in files:
     process_file(f)    # ← 瓶颈：串行 I/O
 ```
 
-### 第 3 步：让 xscale 分析它
+### 第 3 步：让 pyscaler 分析它
 
 ```bash
-xscale analyze examples/01_file_loop.py
+pyscaler analyze examples/01_file_loop.py
 ```
 
-xscale 会告诉你：
+pyscaler 会告诉你：
 - 瓶颈在哪一行
 - 推荐用什么分布式模式（这里是 Ray 文件级并行）
 - 预估能加速多少倍
@@ -89,7 +100,7 @@ xscale 会告诉你：
 ### 第 4 步：转换
 
 ```bash
-xscale convert examples/01_file_loop.py --framework ray --workers 8
+pyscaler convert examples/01_file_loop.py --framework ray --workers 8
 ```
 
 生成两个文件：
@@ -109,10 +120,10 @@ done
 再跑验证：
 
 ```bash
-xscale verify examples/01_file_loop_dist.py --input ./data/input --sample 0.2
+pyscaler verify examples/01_file_loop_dist.py --input ./data/input --sample 0.2
 ```
 
-xscale 会：
+pyscaler 会：
 1. 取 20% 样本
 2. 同时跑原版和 Ray 版
 3. 对比两个版本输出是否一致
@@ -122,29 +133,29 @@ xscale 会：
 
 ```bash
 # 本地（ray.init() 用本机所有核心）
-xscale run examples/01_file_loop_dist.py --backend local --input ./data/input
+pyscaler run examples/01_file_loop_dist.py --backend local --input ./data/input
 
 # 你自己的 Ray 集群
-xscale run examples/01_file_loop_dist.py --backend ray://head:10001 --input ./data/input
+pyscaler run examples/01_file_loop_dist.py --backend ray://head:10001 --input ./data/input
 
 # 或提交给 DBay
-xscale run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket/data/
+pyscaler run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket/data/
 ```
 
 ### 常见问题
 
-**Q: 我的代码 xscale 说不能并行化怎么办？**
-看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。xscale 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
+**Q: 我的代码 pyscaler 说不能并行化怎么办？**
+看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。pyscaler 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
 
 **Q: 一定要用 Ray 吗？**
-目前是。下一个支持的框架是 Aura（规划中），用 `--framework aura` 启用。转换后的脚本是标准框架代码，xscale 不会锁定你。
+目前是。下一个支持的框架是 Aura（规划中），用 `--framework aura` 启用。转换后的脚本是标准框架代码，pyscaler 不会锁定你。
 
 **Q: 转换用 LLM 吗？**
 默认不用，纯模板转换，离线可跑。加 `--llm-assist` 才会用 LLM 帮忙填一些边角情况。
 
 ## 核心概念
 
-xscale 有两层插件，**分别正交**：
+pyscaler 有两层插件，**分别正交**：
 
 | 层 | 职责 | 例子 |
 |---|---|---|
@@ -169,7 +180,7 @@ xscale 有两层插件，**分别正交**：
 每个任务有独立工作目录，记录来源、产物、运行日志：
 
 ```
-.xscale/tasks/{task_id}/
+.pyscaler/tasks/{task_id}/
 ├── meta.json              # 命令、参数、commit、时间戳
 ├── source/                # 原始代码快照
 ├── converted/             # 生成的分布式脚本 + diff
@@ -177,7 +188,7 @@ xscale 有两层插件，**分别正交**：
 └── runs/{run_id}/         # 每次执行的日志和输出
 ```
 
-默认写在当前目录 `./.xscale/`，也可以指向 OBS/S3 共享给团队。
+默认写在当前目录 `./.pyscaler/`，也可以指向 OBS/S3 共享给团队。
 
 ## 设计边界
 
@@ -205,7 +216,7 @@ xscale 有两层插件，**分别正交**：
 
 ## 贡献
 
-欢迎 Issue 和 PR。添加新框架：在 `src/xscale/frameworks/` 下新建一个继承 `Framework` 的类，在 `registry.py` 注册即可。
+欢迎 Issue 和 PR。添加新框架：在 `src/pyscaler/frameworks/` 下新建一个继承 `Framework` 的类，在 `registry.py` 注册即可。
 
 ## 许可
 

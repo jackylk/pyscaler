@@ -1,4 +1,4 @@
-# xscale
+# pyscaler
 
 Turn your single-machine Python data processing code into a distributed script.
 Framework-agnostic (Ray, Dask, ...), runs anywhere — your own cluster or DBay.
@@ -7,16 +7,16 @@ Framework-agnostic (Ray, Dask, ...), runs anywhere — your own cluster or DBay.
 
 ```bash
 # From PyPI (once published)
-pip install xscale
+pip install pyscaler
 
 # With framework runtime
-pip install "xscale[ray]"        # Ray backend
-pip install "xscale[dask]"       # Dask backend (planned)
-pip install "xscale[llm]"        # LLM-assisted conversion
+pip install "pyscaler[ray]"        # Ray backend
+pip install "pyscaler[dask]"       # Dask backend (planned)
+pip install "pyscaler[llm]"        # LLM-assisted conversion
 
 # Dev install from source
-git clone https://github.com/xscale/xscale
-cd xscale
+git clone https://github.com/pyscaler/pyscaler
+cd pyscaler
 pip install -e ".[ray,dev]"
 ```
 
@@ -24,18 +24,18 @@ pip install -e ".[ray,dev]"
 
 ```bash
 # 1. Analyze — find bottlenecks, recommend framework, predict speedup
-xscale analyze ./process.py
+pyscaler analyze ./process.py
 
 # 2. Convert — write process_dist.py + a unified diff
-xscale convert ./process.py --framework ray --workers 8
+pyscaler convert ./process.py --framework ray --workers 8
 
 # 3. Verify — run both versions on a 5% sample, compare correctness & speed
-xscale verify ./process_dist.py --input ./data/ --sample 0.05
+pyscaler verify ./process_dist.py --input ./data/ --sample 0.05
 
 # 4. Run — execute on a backend of your choice
-xscale run ./process_dist.py --backend local             --input ./data/
-xscale run ./process_dist.py --backend ray://head:10001  --input ./data/
-xscale run ./process_dist.py --backend dbay              --input obs://bucket/data/
+pyscaler run ./process_dist.py --backend local             --input ./data/
+pyscaler run ./process_dist.py --backend ray://head:10001  --input ./data/
+pyscaler run ./process_dist.py --backend dbay              --input obs://bucket/data/
 ```
 
 ## Concepts

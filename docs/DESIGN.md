@@ -1,4 +1,4 @@
-# xscale Design
+# pyscaler Design
 
 ## Goal
 
@@ -35,7 +35,7 @@ orthogonal. Keeping them separate means:
 - New frameworks (Spark, Modin) plug in without touching the execution layer
 
 ```
-src/xscale/
+src/pyscaler/
 ├── frameworks/          # code transformation plugins
 │   ├── base.py          # Framework interface
 │   ├── registry.py
@@ -89,7 +89,7 @@ If speedup < 1.5× or correctness fails → block `run` unless `--force`.
 Each task gets a workspace dir:
 
 ```
-.xscale/tasks/{task_id}/
+.pyscaler/tasks/{task_id}/
 ├── meta.json              # command, params, commit, timestamps
 ├── source/                # snapshot of user's code
 ├── converted/             # generated distributed script + diff
@@ -97,7 +97,7 @@ Each task gets a workspace dir:
 └── runs/{run_id}/         # logs + results per execution
 ```
 
-Default: `./.xscale/`. User can point to OBS/S3 for team sharing.
+Default: `./.pyscaler/`. User can point to OBS/S3 for team sharing.
 
 ## LLM
 
@@ -109,6 +109,6 @@ Default: `./.xscale/`. User can point to OBS/S3 for team sharing.
 
 ## Release
 
-- PyPI: `pip install xscale`
+- PyPI: `pip install pyscaler`
 - Extras: `[ray]`, `[dask]`, `[llm]`, `[dev]`
-- `xscale` CLI entrypoint registered via `project.scripts`
+- `pyscaler` CLI entrypoint registered via `project.scripts`

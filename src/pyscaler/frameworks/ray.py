@@ -137,10 +137,10 @@ class RayFramework(Framework):
         col = info["target_col"]
         func = info["func_name"]
 
-        # Inject a _xscale_apply_chunk helper at module top (after imports)
+        # Inject a _pyscaler_apply_chunk helper at module top (after imports)
         helper_src = textwrap.dedent(f"""
             @ray.remote
-            def _xscale_apply_chunk(chunk):
+            def _pyscaler_apply_chunk(chunk):
                 return chunk.apply({func}, axis=1)
         """).lstrip()
         helper_stmts = ast.parse(helper_src).body
@@ -150,7 +150,7 @@ class RayFramework(Framework):
         replacement_src = textwrap.dedent(f"""
             _chunk_size = max(1, (len({df}) + {workers} - 1) // {workers})
             _chunks = [{df}.iloc[i:i + _chunk_size] for i in range(0, len({df}), _chunk_size)]
-            _results = ray.get([_xscale_apply_chunk.remote(c) for c in _chunks])
+            _results = ray.get([_pyscaler_apply_chunk.remote(c) for c in _chunks])
             {df}["{col}"] = pd.concat(_results)
         """).lstrip()
         replacement_stmts = ast.parse(replacement_src).body

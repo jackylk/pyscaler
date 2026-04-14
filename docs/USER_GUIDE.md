@@ -1,33 +1,33 @@
-# xscale CLI 用户指南
+# pyscaler CLI 用户指南
 
 适用版本：0.0.1+
 
 ## 安装
 
 ```bash
-pip install "xscale[ray]"            # 推荐：包含 Ray 运行时
-pip install "xscale[ray,llm]"        # 启用 LLM 辅助转换
+pip install "pyscaler[ray]"            # 推荐：包含 Ray 运行时
+pip install "pyscaler[ray,llm]"        # 启用 LLM 辅助转换
 pip install -e ".[ray,dev]"           # 源码开发
 ```
 
-安装后 `xscale` 命令即可使用。
+安装后 `pyscaler` 命令即可使用。
 
 ## 全局选项
 
 ```
-xscale --version        # 显示版本
-xscale --help           # 命令总览
-xscale <cmd> --help     # 单个子命令的选项
+pyscaler --version        # 显示版本
+pyscaler --help           # 命令总览
+pyscaler <cmd> --help     # 单个子命令的选项
 ```
 
 ## 子命令
 
-### `xscale analyze <path>`
+### `pyscaler analyze <path>`
 
 **作用：** 静态分析 Python 文件，找出可并行的模式，指出阻塞点。
 
 ```bash
-xscale analyze ./process.py
+pyscaler analyze ./process.py
 ```
 
 **输出**：
@@ -43,12 +43,12 @@ xscale analyze ./process.py
 
 ---
 
-### `xscale convert <path>`
+### `pyscaler convert <path>`
 
 **作用：** 把 Python 脚本转成指定框架的分布式版本。
 
 ```bash
-xscale convert ./process.py \
+pyscaler convert ./process.py \
   --framework ray \
   --workers 8 \
   --output ./process_ray.py
@@ -58,7 +58,7 @@ xscale convert ./process.py \
 
 | 参数 | 简写 | 默认 | 说明 |
 |---|---|---|---|
-| `--framework` | `-f` | `ray` | 目标框架，见 `xscale frameworks` |
+| `--framework` | `-f` | `ray` | 目标框架，见 `pyscaler frameworks` |
 | `--workers` | | `8` | 并发数（影响 `ray.init` 与分片数量） |
 | `--output` | | `<原名>_dist.py` | 输出文件 |
 
@@ -82,12 +82,12 @@ xscale convert ./process.py \
 
 ---
 
-### `xscale verify <script>`
+### `pyscaler verify <script>`
 
 **作用：** 同时跑原版和分布式版，对比实际加速比。
 
 ```bash
-xscale verify ./process_dist.py \
+pyscaler verify ./process_dist.py \
   --original ./process.py \
   --input ./data/
 ```
@@ -114,12 +114,12 @@ Measured speedup: 5.10×
 
 ---
 
-### `xscale run <script>`
+### `pyscaler run <script>`
 
 **作用：** 选择后端执行分布式脚本。
 
 ```bash
-xscale run ./process_dist.py --backend local --input ./data/
+pyscaler run ./process_dist.py --backend local --input ./data/
 ```
 
 **参数**：
@@ -134,12 +134,12 @@ xscale run ./process_dist.py --backend local --input ./data/
 
 ---
 
-### `xscale frameworks`
+### `pyscaler frameworks`
 
 列出已注册的框架。
 
 ```
-$ xscale frameworks
+$ pyscaler frameworks
   • ray
   • aura
 ```
@@ -151,10 +151,10 @@ $ xscale frameworks
 ### 场景 1：文件循环加速
 
 ```bash
-xscale analyze process.py          # 1. 分析
-xscale convert process.py -f ray   # 2. 转换 → process_dist.py
-xscale verify process_dist.py -i data/   # 3. 验证
-xscale run process_dist.py -i data/      # 4. 执行
+pyscaler analyze process.py          # 1. 分析
+pyscaler convert process.py -f ray   # 2. 转换 → process_dist.py
+pyscaler verify process_dist.py -i data/   # 3. 验证
+pyscaler run process_dist.py -i data/      # 4. 执行
 ```
 
 ### 场景 2：DataFrame 计算加速
@@ -172,15 +172,15 @@ if __name__ == "__main__":
     df.to_parquet("./events_scored.parquet")
 EOF
 
-xscale analyze score.py            # 识别为 dataframe_apply
-xscale convert score.py --workers 4
-xscale run score_dist.py -i .      # 在本地 Ray 上跑
+pyscaler analyze score.py            # 识别为 dataframe_apply
+pyscaler convert score.py --workers 4
+pyscaler run score_dist.py -i .      # 在本地 Ray 上跑
 ```
 
 ### 场景 3：代码被阻塞
 
 ```bash
-xscale analyze bad.py
+pyscaler analyze bad.py
 # Output:
 # Pattern: unknown
 # Blockers:
@@ -194,7 +194,7 @@ xscale analyze bad.py
 
 ## 工作目录
 
-每个任务产出默认写在输入文件旁边（`process_dist.py`）。未来会引入 `.xscale/tasks/{id}/` 目录保存元数据、日志、验证报告。
+每个任务产出默认写在输入文件旁边（`process_dist.py`）。未来会引入 `.pyscaler/tasks/{id}/` 目录保存元数据、日志、验证报告。
 
 ---
 
@@ -219,4 +219,4 @@ xscale analyze bad.py
 `ast.unparse` 不保留原文格式。后续版本会用 `libcst` 保留源码结构。
 
 **Q: 能转换我的代码吗？**
-先跑 `xscale analyze`。它会直接告诉你模式是什么、有没有阻塞。
+先跑 `pyscaler analyze`。它会直接告诉你模式是什么、有没有阻塞。

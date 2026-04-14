@@ -12,9 +12,9 @@ import pytest
 
 ray = pytest.importorskip("ray")
 
-from xscale.analyzer import analyze_file
-from xscale.backends.local import LocalBackend
-from xscale.frameworks.registry import get_framework
+from pyscaler.analyzer import analyze_file
+from pyscaler.backends.local import LocalBackend
+from pyscaler.frameworks.registry import get_framework
 
 
 FIXTURE = textwrap.dedent("""
@@ -150,12 +150,12 @@ def test_cli_analyze_and_convert(tmp_path: Path):
     src = tmp_path / "orig.py"
     src.write_text(FIXTURE)
 
-    cmd = [sys.executable, "-m", "xscale.cli", "analyze", str(src)]
+    cmd = [sys.executable, "-m", "pyscaler.cli", "analyze", str(src)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert "parallel_loop" in r.stdout
 
-    cmd = [sys.executable, "-m", "xscale.cli", "convert", str(src), "--workers", "2"]
+    cmd = [sys.executable, "-m", "pyscaler.cli", "convert", str(src), "--workers", "2"]
     r = subprocess.run(cmd, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert (tmp_path / "orig_dist.py").exists()

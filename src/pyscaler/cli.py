@@ -13,18 +13,19 @@ from rich.syntax import Syntax
 from . import __version__
 from .analyzer import analyze_file
 from .backends.local import LocalBackend
+from .backends.registry import get_backend
 from .frameworks.registry import available_frameworks, get_framework
 
 app = typer.Typer(
     no_args_is_help=True,
-    help="xscale — turn single-machine Python data code into a distributed script.",
+    help="pyscaler — turn single-machine Python data code into a distributed script.",
 )
 console = Console()
 
 
 def _version_cb(value: bool):
     if value:
-        console.print(f"xscale {__version__}")
+        console.print(f"pyscaler {__version__}")
         raise typer.Exit()
 
 
@@ -65,7 +66,7 @@ def analyze(path: Path = typer.Argument(..., help="Python file to analyze")):
     for note in result.notes:
         console.print(f"[dim]• {note}[/]")
     if result.supports_parallel:
-        console.print("\n[green]✓ Ready to convert[/] — run `xscale convert`")
+        console.print("\n[green]✓ Ready to convert[/] — run `pyscaler convert`")
     else:
         console.print("\n[yellow]⚠ Not ready to convert as-is — see blockers above[/]")
 
@@ -154,15 +155,45 @@ def run(
     input: str = typer.Option(..., "--input", "-i", help="Input path (local dir, s3://, obs://)"),
     output: Optional[str] = typer.Option(None, "--output", "-o"),
 ):
-    """Execute the distributed script on a chosen backend."""
-    if backend_name != "local":
-        console.print(f"[yellow]Backend `{backend_name}` not implemented yet.[/]")
-        raise typer.Exit(4)
+    """Execute the distributed script on a chosen backend.
+
+    backend=local                → embedded Ray (ray.init in-process)
+    backend=ray://HOST:PORT      → Ray cluster (sets RAY_ADDRESS for the script)
+    backend=auto                 → Ray cluster via gcs auto-detect
+    backend=dbay                 → DBay remote Ray cluster (needs XSCALE_DBAY_* env)
+    """
     if not script.exists():
         console.print(f"[red]Script not found:[/] {script}")
         raise typer.Exit(1)
-    backend = LocalBackend()
-    rid = backend.submit(script, input, output or "")
+
+    import os
+    env = os.environ.copy()
+    if backend_name.startswith("ray://") or backend_name == "auto":
+        env["RAY_ADDRESS"] = backend_name
+        backend = LocalBackend()
+        rid = backend.submit(script, input, output or "", env=env)
+    elif backend_name == "dbay":
+        try:
+            backend = get_backend("dbay")
+        except RuntimeError as e:
+            console.print(f"[red]{e}[/]")
+            raise typer.Exit(4)
+        rid = backend.submit(script, input, output or "")
+        console.print(f"[dim]Submitted job[/] {rid} · polling...")
+        s = backend.wait(rid)  # type: ignore[attr-defined]
+        console.print(f"[bold]State:[/] {s.get('state')} · [bold]Duration:[/] {s.get('duration', 0):.2f}s")
+        for line in backend.logs(rid):
+            console.print(f"  {line}")
+        if s.get("state") != "succeeded":
+            raise typer.Exit(s.get("returncode") or 1)
+        return
+    elif backend_name == "local":
+        backend = LocalBackend()
+        rid = backend.submit(script, input, output or "")
+    else:
+        console.print(f"[red]Unknown backend: {backend_name}[/]")
+        raise typer.Exit(4)
+
     s = backend.status(rid)
     console.print(f"[bold]State:[/] {s['state']} · [bold]Duration:[/] {s['duration']:.2f}s")
     for line in backend.logs(rid):

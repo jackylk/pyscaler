@@ -2,7 +2,7 @@
 示例 2：DataFrame 上的 apply/map
 
 典型场景：一个大 DataFrame，按行或按列做计算。
-xscale 会把这种模式转成 ray.data 的并行 map。
+pyscaler 会把这种模式转成 ray.data 的并行 map。
 """
 import pandas as pd
 
