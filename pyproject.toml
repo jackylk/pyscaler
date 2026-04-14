@@ -35,7 +35,7 @@ dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10", "build", "twine"]
 distify = "distify.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/distify/distify"
+Homepage = "https://github.com/jackylk/distify"
 
 [tool.ruff]
 line-length = 100

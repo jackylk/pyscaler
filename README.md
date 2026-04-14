@@ -49,6 +49,99 @@ distify run ./process_dist.py --backend ray://head:10001  --input ./data/
 distify run ./process_dist.py --backend dbay              --input obs://bucket/data/
 ```
 
+## 5 分钟上手教程
+
+这个教程用仓库里自带的示例代码，走一遍完整流程。
+
+### 第 1 步：准备环境
+
+```bash
+git clone https://github.com/jackylk/distify
+cd distify
+pip install -e ".[ray,dev]"     # 装 distify + Ray 运行时
+```
+
+### 第 2 步：看一下你要转换的代码
+
+```bash
+cat examples/01_file_loop.py
+```
+
+这是一段典型的"遍历文件目录，逐个处理"的代码：
+
+```python
+files = sorted(glob.glob("./data/input/*.json"))
+for f in files:
+    process_file(f)    # ← 瓶颈：串行 I/O
+```
+
+### 第 3 步：让 distify 分析它
+
+```bash
+distify analyze examples/01_file_loop.py
+```
+
+distify 会告诉你：
+- 瓶颈在哪一行
+- 推荐用什么分布式模式（这里是 Ray 文件级并行）
+- 预估能加速多少倍
+
+### 第 4 步：转换
+
+```bash
+distify convert examples/01_file_loop.py --framework ray --workers 8
+```
+
+生成两个文件：
+- `examples/01_file_loop_dist.py` —— 转换后的 Ray 版本
+- 终端打印 diff，让你一眼看到改了什么
+
+### 第 5 步：验证正确性 + 测实际加速比
+
+先造一点测试数据（示例）：
+
+```bash
+mkdir -p data/input && for i in $(seq 1 50); do
+  echo "{\"records\": [1,2,3]}" > data/input/f$i.json
+done
+```
+
+再跑验证：
+
+```bash
+distify verify examples/01_file_loop_dist.py --input ./data/input --sample 0.2
+```
+
+distify 会：
+1. 取 20% 样本
+2. 同时跑原版和 Ray 版
+3. 对比两个版本输出是否一致
+4. 告诉你实测加速比
+
+### 第 6 步：在真实数据上跑
+
+```bash
+# 本地（ray.init() 用本机所有核心）
+distify run examples/01_file_loop_dist.py --backend local --input ./data/input
+
+# 你自己的 Ray 集群
+distify run examples/01_file_loop_dist.py --backend ray://head:10001 --input ./data/input
+
+# 或提交给 DBay
+distify run examples/01_file_loop_dist.py --backend dbay --input obs://my-bucket/data/
+```
+
+### 常见问题
+
+**Q: 我的代码 distify 说不能并行化怎么办？**
+看 `examples/03_blocked_by_state.py`，是共享可变状态的典型反例。distify 会指出问题点，按提示重构（通常是把全局变量改成函数参数）就行。
+
+**Q: 一定要用 Ray 吗？**
+不用。`--framework` 参数可以选 `ray` 或 `dask`（开发中）。转换后的脚本是标准框架代码，distify 不会锁定你。
+
+**Q: 转换用 LLM 吗？**
+默认不用，纯模板转换，离线可跑。加 `--llm-assist` 才会用 LLM 帮忙填一些边角情况。
+
 ## 核心概念
 
 distify 有两层插件，**分别正交**：
